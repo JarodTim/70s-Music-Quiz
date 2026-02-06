@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f0f0f;
+  color: white;
+  text-align: center;
+  padding: 90px 15px 20px;
+}
+button {
+  padding: 10px 14px;
+  margin: 5px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.start-btn { background: #ff9800; color: black; }
+.point-btn { background: #1db954; color: white; }
+.next-btn { background: #2196f3; color: white; }
+.shuffle-btn { background: #9c27b0; color: white; }
+
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #0f0f0f;
+  z-index: 20;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.6);
+  padding: 10px;
+}
+.turn-display {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+.top-controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+input {
+  padding: 8px;
+  margin: 5px;
+  border-radius: 6px;
+  border: none;
+  width: 120px;
+}
+.card {
+  width: 260px;
+  height: 380px;
+  perspective: 1000px;
+  margin: 15px auto;
+}
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transition: transform 0.7s;
+  transform-style: preserve-3d;
+}
+.card.flip .card-inner { transform: rotateY(180deg); }
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+.card-front {
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.card-front img { width: 85%; }
+.card-back {
+  background: linear-gradient(135deg, #7b1fa2, #000);
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+}
+.hidden { display: none; }
+.scoreboard { font-size: 14px; }
+.no-anim .card-inner { transition: none !important; }
+.info-text {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 8px 0;
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="turn-display" id="turnDisplay"></div>
+  <div class="top-controls">
+    <button class="shuffle-btn" onclick="shuffleDeck()">🔀</button>
+    <button class="point-btn" onclick="addSongPoint()">+1 Song</button>
+    <button class="point-btn" onclick="addBandPoint()">+1 Band</button>
+    <button class="point-btn" onclick="addYearPoint()">+1 Year</button>
+    <button class="next-btn" onclick="nextTurn()">Next ➡</button>
+  </div>
+</div>
+
+<div class="setup">
+  <p>Enter up to 6 players</p>
+  <div id="playerInputs"></div>
+  <button class="start-btn" onclick="startGame()">Start Game</button>
+</div>
+
+<div class="game-area hidden" id="gameArea">
+  <div class="card" id="card" onclick="flipCard()">
+    <div class="card-inner">
+      <div class="card-face card-front">
+        <img id="qrImage" src="">
+      </div>
+      <div class="card-face card-back">
+        <p id="song" class="info-text"></p>
+        <p id="band" class="info-text hidden"></p>
+        <p id="year" class="info-text hidden"></p>
+      </div>
+    </div>
+  </div>
+  <div class="scoreboard" id="scoreboard"></div>
+</div>
+
+<script>
+// Example deck - update with your own songs
+const deck = [
+  { qr: "song1.png", song: "Gimme! Gimme! Gimme! (A Man After Midnight)", band: "ABBA", year: "1979" },
+  { qr: "song2.png", song: "September", band: "Earth Wind & Fire", year: "1978" },
+  { qr: "song3.png", song: "Born to Run", band: "Bruce Springsteen", year: "1975" },
+  { qr: "song4.png", song: "Dreams", band: "Fleetwood Mac", year: "1977" },
+  { qr: "song5.png", song: "Voulez-Vous", band: "ABBA", year: "1979" },
+  { qr: "song6.png", song: "Heart Of Glass", band: "Blondie", year: "1978" },
+  { qr: "song7.png", song: "Rocket Man (I Think It's Going To Be A Long", band: "Honky Chateau", year: "1972" },
+  { qr: "song8.png", song: "Video Killed The Radio Star", band: "The Buggles", year: "1979" },
+  { qr: "song9.png", song: "Landslide", band: "Fleetwood Mac", year: "1975" },
+  { qr: "song10.png", song: "Mamma Mia", band: "ABBA", year: "1975" },
+  { qr: "song11.png", song: "Young Hearts Run Free", band: "Candi Staton", year: "1976" },
+  { qr: "song12.png", song: "Tiny Dancer", band: "Elton John", year: "1971" },
+  { qr: "song13.png", song: "Heroes", band: "David Bowie", year: "1977" },
+  { qr: "song14.png", song: "Lovely Day", band: "Bill Withers", year: "1977" },
+  { qr: "song15.png", song: "Make Your Own Kind Of Music", band: "Cass Elliot", year: "1973" },
+  { qr: "song16.png", song: "Psycho Killer", band: "Talking Heads", year: "1977" },
+  { qr: "song17.png", song: "Vienna", band: "Billy Joel", year: "1977" },
+  { qr: "song18.png", song: "Starman", band: "David Bowie", year: "1972" },
+  { qr: "song19.png", song: "A Horse with No Name", band: "America", year: "1972" },
+  { qr: "song20.png", song: "Ain't No Sunshine", band: "Bill Withers", year: "1971" },
+  { qr: "song21.png", song: "The Passenger", band: "Iggy Pop", year: "1977" },
+  { qr: "song22.png", song: "Wish You Were Here", band: "Pink Floyd", year: "1975" },
+  { qr: "song23.png", song: "Mr. Blue Sky", band: "Electric Light Orchestra", year: "1977" },
+  { qr: "song24.png", song: "(Don't Fear) The Reaper", band: "Blue Öyster Cult", year: "1976" },
+  { qr: "song25.png", song: "Wild World", band: "Yusuf / Cat Stevens", year: "1970" },
+  { qr: "song26.png", song: "Wuthering Heights", band: "Kate Bush", year: "1978" },
+  { qr: "song27.png", song: "Stuck In The Middle With You", band: "Stealers Wheel", year: "1972" },
+  { qr: "song28.png", song: "Escape (The Pina Colada Song)", band: "Rupert Holmes", year: "1979" },
+  { qr: "song29.png", song: "The Logical Song", band: "Supertramp", year: "1979" },
+  { qr: "song30.png", song: "Baba O'Riley", band: "The Who", year: "1971" },
+  { qr: "song31.png", song: "SOS", band: "ABBA", year: "1975" },
+  { qr: "song32.png", song: "More Than a Feeling", band: "Boston", year: "1976" },
+  { qr: "song33.png", song: "Because the Night", band: "Patti Smith", year: "1978" },
+  { qr: "song34.png", song: "Goodbye Yellow Brick Road", band: "Elton John", year: "1973" },
+  { qr: "song35.png", song: "You're So Vain", band: "Carly Simon", year: "1972" },
+  { qr: "song36.png", song: "Breakfast In America", band: "Supertramp", year: "1979" },
+  { qr: "song37.png", song: "Baker Street", band: "Gerry Rafferty", year: "1978" },
+  { qr: "song38.png", song: "Roxanne", band: "The Police", year: "1978" },
+  { qr: "song39.png", song: "Piano Man", band: "Billy Joel", year: "1973" },
+  { qr: "song40.png", song: "Hooked On A Feeling", band: "Blue Swede, Björn Skifs", year: "1974" },
+  { qr: "song41.png", song: "Jolene", band: "Dolly Parton", year: "1974" },
+  { qr: "song42.png", song: "Sultans Of Swing", band: "Dire Straits", year: "1978" },
+  { qr: "song43.png", song: "Message In A Bottle", band: "The Police", year: "1979" },
+  { qr: "song44.png", song: "My Life", band: "Billy Joel", year: "1978" },
+  { qr: "song45.png", song: "Knockin' On Heaven's Door", band: "Bob Dylan", year: "1973" },
+  { qr: "song46.png", song: "Dancing in the Moonlight", band: "King Harvest", year: "1973" },
+  { qr: "song47.png", song: "Don't Go Breaking My Heart", band: "Elton John, Kiki Dee", year: "1975" },
+  { qr: "song48.png", song: "You Sexy Thing", band: "Hot Chocolate", year: "1975" },
+  { qr: "song49.png", song: "Hold the Line", band: "TOTO", year: "1978" },
+  { qr: "song50.png", song: "Father And Son", band: "Yusuf / Cat Stevens", year: "1970" },
+  { qr: "song51.png", song: "Da Ya Think I'm Sexy?", band: "Rod Stewart", year: "1978" },
+  { qr: "song52.png", song: "Stairway to Heaven", band: "Led Zeppelin", year: "1971" },
+  { qr: "song53.png", song: "Bennie And The Jets", band: "Elton John", year: "1973" },
+  { qr: "song54.png", song: "Heart of Gold", band: "Neil Young", year: "1972" },
+  { qr: "song55.png", song: "Perfect Day", band: "Lou Reed", year: "1972" },
+  { qr: "song56.png", song: "Don't Bring Me Down", band: "Electric Light Orchestra", year: "1979" },
+  { qr: "song57.png", song: "Right Down the Line", band: "Gerry Rafferty", year: "1978" },
+  { qr: "song58.png", song: "50 Ways to Leave Your Lover", band: "Paul Simon", year: "1975" },
+  { qr: "song59.png", song: "She's Always a Woman", band: "Billy Joel", year: "1977" },
+  { qr: "song60.png", song: "Walk On the Wild Side", band: "Lou Reed", year: "1972" },
+  { qr: "song61.png", song: "Sunny", band: "Boney M.", year: "1976" },
+  { qr: "song62.png", song: "Another Brick in the Wall", band: "The Wall", year: "1979" },
+  { qr: "song63.png", song: "Easy", band: "Commodores", year: "1995" },
+  { qr: "song64.png", song: "The Air That I Breathe", band: "The Hollies", year: "1974" },
+  { qr: "song65.png", song: "Rich Girl", band: "Daryl Hall & John Oates", year: "1977" },
+  { qr: "song66.png", song: "Free Bird", band: "Lynyrd Skynyrd", year: "1973" },
+  { qr: "song67.png", song: "Come and Get Your Love", band: "Redbone", year: "1973" },
+  { qr: "song68.png", song: "Superstition", band: "Stevie Wonder", year: "1972" },
+  { qr: "song69.png", song: "Lean on Me", band: "Bill Withers", year: "1972" },
+  { qr: "song70.png", song: "Dust in the Wind", band: "Kansas", year: "1977" },
+  { qr: "song71.png", song: "Dream On", band: "Aerosmith", year: "1973" },
+  { qr: "song72.png", song: "In the Summertime", band: "Mungo Jerry", year: "1971" },
+  { qr: "song73.png", song: "Life on Mars?", band: "David Bowie", year: "1971" },
+  { qr: "song74.png", song: "Layla", band: "Derek & The Dominos", year: "1970" },
+  { qr: "song75.png", song: "Play That Funky Music", band: "Wild Cherry", year: "1976" },
+  { qr: "song76.png", song: "Don't Stop Me Now", band: "Queen", year: "1978" },
+  { qr: "song77.png", song: "Live And Let Die", band: "Wings", year: "1978" },
+  { qr: "song78.png", song: "Have You Ever Seen The Rain", band: "Creedence Clearwater Revival", year: "1970" },
+  { qr: "song79.png", song: "London Calling", band: "The Clash", year: "1979" },
+  { qr: "song80.png", song: "One Way Or Another", band: "Blondie", year: "1978" },
+  { qr: "song81.png", song: "Take A Chance On Me", band: "ABBA", year: "1977" },
+  { qr: "song82.png", song: "Killer Queen", band: "Queen", year: "1974" },
+  { qr: "song83.png", song: "Wild Horses", band: "The Rolling Stones", year: "1971" },
+  { qr: "song84.png", song: "Black Betty", band: "Ram Jam", year: "1977" },
+  { qr: "song85.png", song: "Carry on Wayward Son", band: "Kansas", year: "1976" },
+  { qr: "song86.png", song: "I'm Not In Love", band: "10cc", year: "1975" },
+  { qr: "song87.png", song: "Barracuda", band: "Heart", year: "1977" },
+  { qr: "song88.png", song: "She's A Lady", band: "Tom Jones", year: "1971" },
+  { qr: "song89.png", song: "Imagine", band: "John Lennon", year: "1971" },
+  { qr: "song90.png", song: "Immigrant Song", band: "Led Zeppelin", year: "1970" },
+  { qr: "song91.png", song: "The Joker", band: "Steve Miller Band", year: "1973" },
+  { qr: "song92.png", song: "Burning Love", band: "Elvis Presley", year: "1973" },
+  { qr: "song93.png", song: "Riders on the Storm", band: "The Doors", year: "1971" },
+  { qr: "song94.png", song: "Grease", band: "Frankie Valli", year: "1978" },
+  { qr: "song95.png", song: "Miss You", band: "The Rolling Stones", year: "1978" },
+  { qr: "song96.png", song: "Don't Stop", band: "Fleetwood Mac", year: "1977" },
+  { qr: "song97.png", song: "Hot Stuff", band: "Donna Summer", year: "1979" },
+  { qr: "song98.png", song: "Low Rider", band: "War", year: "1975" },
+  { qr: "song99.png", song: "Move on Up", band: "Curtis Mayfield", year: "1970" },
+  { qr: "song100.png", song: "Beast Of Burden", band: "The Rolling Stones", year: "1978" },
+  { qr: "song101.png", song: "Crazy Little Thing Called Love", band: "Queen", year: "1979" },
+  { qr: "song102.png", song: "You Make Me Feel Like Dancing", band: "Leo Sayer", year: "1976" },
+  { qr: "song103.png", song: "The Boxer", band: "Simon & Garfunkel", year: "1970" },
+  { qr: "song104.png", song: "Solsbury Hill", band: "Peter Gabriel", year: "1977" },
+  { qr: "song105.png", song: "Tragedy", band: "Bee Gees", year: "1979" },
+  { qr: "song106.png", song: "Bohemian Rhapsody", band: "Queen", year: "1975" },
+  { qr: "song107.png", song: "Every 1's a Winner", band: "Hot Chocolate", year: "1978" },
+  { qr: "song108.png", song: "Yes Sir I can Boogie", band: "Baccara", year: "1977" },
+  { qr: "song109.png", song: "Get It On", band: "T. Rex", year: "1971" },
+  { qr: "song111.png", song: "Simple Man", band: "Lynyrd Skynyrd", year: "1973" },
+  { qr: "song112.png", song: "Let's Stay Together", band: "Al Green", year: "1972" },
+  { qr: "song113.png", song: "Give A Little Bit", band: "Supertramp", year: "1977" },
+  { qr: "song114.png", song: "Don't Stop 'Til You Get Enough", band: "Michael Jackson", year: "1979" },
+  { qr: "song115.png", song: "Sweet Emotion", band: "Aerosmith", year: "1975" },
+  { qr: "song116.png", song: "Rock 'n' Roll", band: "Gary Glitter", year: "1973" },
+  { qr: "song118.png", song: "Stumblin' In", band: "Chris Norman, Suzi Quatro", year: "1978" },
+  { qr: "song119.png", song: "Livin' Thing", band: "Electric Light Orchestra", year: "1976" },
+  { qr: "song120.png", song: "Ventura Highway", band: "America, George Martin", year: "1972" },
+  { qr: "song121.png", song: "Sweet Home Alabama", band: "Lynyrd Skynyrd", year: "1974" },
+  { qr: "song122.png", song: "Long Train Runnin'", band: "The Doobie Brothers", year: "1973" },
+  { qr: "song123.png", song: "My Sharona", band: "The Knack", year: "1979" },
+  { qr: "song124.png", song: "It's Too Late", band: "Carole King", year: "1971" },
+  { qr: "song125.png", song: "Blame It on the Boogie", band: "The Jacksons", year: "1978" },
+  { qr: "song126.png", song: "Vincent", band: "Don McLean", year: "1971" },
+  { qr: "song127.png", song: "Do It Again", band: "Steely Dan", year: "1972" },
+  { qr: "song128.png", song: "Boys Don't Cry", band: "The Cure", year: "1979" },
+  { qr: "song129.png", song: "Take It Easy", band: "Eagles", year: "1972" },
+  { qr: "song130.png", song: "Cold as Ice", band: "Foreigner", year: "1977" },
+  { qr: "song131.png", song: "I Was Made For Lovin' You", band: "KISS", year: "1979" },
+  { qr: "song132.png", song: "December", band: "Who Loves You", year: "1975" },
+  { qr: "song133.png", song: "Our House", band: "Crosby", year: "1970" },
+  { qr: "song134.png", song: "Let It Be", band: "The Beatles", year: "1970" },
+  { qr: "song135.png", song: "Brandy", band: "Looking Glass", year: "1972" },
+  { qr: "song136.png", song: "Dirty Work", band: "Steely Dan", year: "1972" },
+  { qr: "song137.png", song: "Got to Be Real", band: "Cheryl Lynn", year: "1978" },
+  { qr: "song138.png", song: "Cat's in the Cradle", band: "Harry Chapin", year: "1974" },
+  { qr: "song139.png", song: "Night Fever", band: "Bee Gees", year: "1977" },
+  { qr: "song140.png", song: "I Will Survive", band: "Gloria Gaynor", year: "1978" },
+  { qr: "song141.png", song: "If You Leave Me Now", band: "Chicago", year: "1976" },
+  { qr: "song142.png", song: "Let's Get It On", band: "Marvin Gaye", year: "1973" },
+  { qr: "song143.png", song: "Rebel Rebel", band: "David Bowie", year: "1974" },
+  { qr: "song144.png", song: "Three Little Birds", band: "Bob Marley & The Wailers", year: "1977" },
+  { qr: "song145.png", song: "Summer Breeze", band: "Seals and Crofts", year: "1977" },
+  { qr: "song146.png", song: "Kashmir", band: "Led Zeppelin", year: "1975" },
+  { qr: "song147.png", song: "You're The One That I Want", band: "John Travolta, Olivia Newton-John", year: "1978" },
+  { qr: "song148.png", song: "Love Grows (Where My Rosemary Goes)", band: "Edison Lighthouse", year: "1970" },
+  { qr: "song149.png", song: "Cecilia", band: "Simon & Garfunkel", year: "1970" },
+  { qr: "song150.png", song: "Love Really Hurts Without You", band: "Billy Ocean", year: "1976" } 	
+
+];
+
+let players = [];
+let scores = {};
+let currentPlayerIndex = 0;
+let currentCardIndex = 0;
+let revealStep = 0;
+let roundNumber = 1;
+let questionNumber = 1;
+
+for (let i = 1; i <= 6; i++) {
+  document.getElementById("playerInputs").innerHTML +=
+    `<input type="text" id="p${i}" placeholder="Player ${i}">`;
+}
+
+function playSound(src) {
+  const sound = new Audio(src);
+  sound.volume = 0.6; // normalized volume
+  sound.play().catch(() => {});
+}
+
+function startGame() {
+  players = [];
+  scores = {};
+  roundNumber = 1;
+  questionNumber = 1;
+  currentPlayerIndex = 0;
+
+  for (let i = 1; i <= 6; i++) {
+    let name = document.getElementById("p" + i).value.trim();
+    if (name) players.push(name);
+  }
+  if (players.length === 0) players.push("Player 1");
+
+  players.forEach(p => scores[p] = 0);
+
+  document.querySelector(".setup").classList.add("hidden");
+  document.getElementById("gameArea").classList.remove("hidden");
+
+  shuffleDeck();
+  updateTurnDisplay();
+  updateScoreboard();
+  loadCard();
+}
+
+function shuffleDeck() {
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  currentCardIndex = 0;
+}
+
+function loadCard() {
+  const cardEl = document.getElementById("card");
+  cardEl.classList.add("no-anim");
+  cardEl.classList.remove("flip");
+  revealStep = 0;
+  void cardEl.offsetWidth;
+
+  const card = deck[currentCardIndex];
+  document.getElementById("qrImage").src = card.qr;
+  document.getElementById("song").textContent = card.song;
+  document.getElementById("band").textContent = card.band;
+  document.getElementById("year").textContent = card.year;
+  
+  // Hide band and year initially
+  document.getElementById("band").classList.add("hidden");
+  document.getElementById("year").classList.add("hidden");
+
+  cardEl.classList.remove("no-anim");
+}
+
+function flipCard() {
+  const card = document.getElementById("card");
+  const band = document.getElementById("band");
+  const year = document.getElementById("year");
+
+  if (revealStep === 0) {
+    // First click: flip to show song
+    card.classList.add("flip");
+    revealStep = 1;
+  } else if (revealStep === 1) {
+    // Second click: reveal band
+    band.classList.remove("hidden");
+    revealStep = 2;
+  } else if (revealStep === 2) {
+    // Third click: reveal year
+    year.classList.remove("hidden");
+    revealStep = 3;
+  }
+}
+
+function addSongPoint() {
+  scores[players[currentPlayerIndex]]++;
+  updateScoreboard();
+  playSound("Nice.mp3");
+}
+
+function addBandPoint() {
+  scores[players[currentPlayerIndex]]++;
+  updateScoreboard();
+  playSound("Yes.mp3");
+}
+
+function addYearPoint() {
+  scores[players[currentPlayerIndex]]++;
+  updateScoreboard();
+  playSound("Awesome.mp3");
+}
+
+function nextTurn() {
+  currentPlayerIndex++;
+  if (currentPlayerIndex >= players.length) {
+    currentPlayerIndex = 0;
+    roundNumber++;
+  }
+  questionNumber++;
+  currentCardIndex = (currentCardIndex + 1) % deck.length;
+  updateTurnDisplay();
+  loadCard();
+}
+
+function updateTurnDisplay() {
+  document.getElementById("turnDisplay").innerHTML =
+    `Round ${roundNumber} — Q${questionNumber}<br><strong>${players[currentPlayerIndex]}'s Turn</strong>`;
+}
+
+function updateScoreboard() {
+  let board = "<h3>Scoreboard</h3>";
+  for (let p of players) {
+    board += p + ": " + scores[p] + "<br>";
+  }
+  document.getElementById("scoreboard").innerHTML = board;
+}
+</script>
+</body>
+</html>
